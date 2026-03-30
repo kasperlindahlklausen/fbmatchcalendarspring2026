@@ -13,3 +13,4 @@ Apple Calendar: File → New Calendar Subscription → paste URL
 Google Calendar: Other calendars → + → From URL → paste URL
 
 Google refreshes every ~24h. Apple can be set to refresh hourly.
+  
