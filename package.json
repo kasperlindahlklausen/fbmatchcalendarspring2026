@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "description": "Live iCal feed for FB 8 matches from DBU",
   "engines": {
-    "node": "18.x"
+    "node": "24.x"
   }
 }
