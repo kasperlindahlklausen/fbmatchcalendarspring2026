@@ -1,51 +1,47 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Only hardcoded thing: the DBU team URL. Change this for any other team.
   const url = "https://dbu.dk/resultater/hold/32007_489367/kampprogram";
 
-  const response = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; calendar-bot/1.0)" },
-  });
+  try {
+    const response = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; calendar-bot/1.0)" },
+    });
 
-  if (!response.ok) {
-    res.status(502).send("Failed to fetch DBU schedule");
-    return;
+    if (!response.ok) {
+      res.status(502).send("Failed to fetch DBU schedule: " + response.status);
+      return;
+    }
+
+    const html = await response.text();
+    const matches = parseMatches(html);
+
+    if (matches.length === 0) {
+      res.status(500).send("No matches found — DBU may have changed their HTML structure");
+      return;
+    }
+
+    const ics = buildICS(matches);
+
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="FB8.ics"');
+    res.setHeader("Cache-Control", "s-maxage=3600");
+    res.status(200).send(ics);
+  } catch (err) {
+    res.status(500).send("Error: " + err.message);
   }
-
-  const html = await response.text();
-  const matches = parseMatches(html);
-
-  if (matches.length === 0) {
-    res.status(500).send("No matches found — DBU may have changed their HTML");
-    return;
-  }
-
-  const ics = buildICS(matches);
-
-  res.setHeader("Content-Type", "text/calendar; charset=utf-8");
-  res.setHeader("Content-Disposition", 'attachment; filename="FB8.ics"');
-  res.setHeader("Cache-Control", "s-maxage=3600"); // Vercel caches for 1 hour
-  res.status(200).send(ics);
-}
+};
 
 function parseMatches(html) {
   const matches = [];
   const rows = html.match(/<tr[\s\S]*?<\/tr>/gi) || [];
 
   for (const row of rows) {
-    // Valid match rows contain a 6-digit match number
     const idMatch = row.match(/>\s*(\d{6})\s*<\/td>/);
     if (!idMatch) continue;
 
-    // Date: e.g. "ons.08-04 2026"
     const dateMatch = row.match(/(?:man|tir|ons|tor|fre|lør|søn)\.(\d{2}-\d{2})\s+(\d{4})/i);
-
-    // Time: e.g. "20:30"
     const timeMatch = row.match(/(\d{2}:\d{2})/);
-
-    // Teams: links to /resultater/hold/
     const teamMatches = [...row.matchAll(/resultater\/hold\/[^"]+">([^<]+)<\/a>/g)];
-
-    // Venue: link to /resultater/stadium/
     const venueMatch = row.match(/resultater\/stadium\/[^"]+">([^<]+)<\/a>/);
 
     if (!dateMatch || !timeMatch || teamMatches.length < 2) continue;
